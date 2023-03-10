@@ -1,7 +1,8 @@
 package docker
 
 type Container struct {
-	ID    string
-	Name  string
-	Image string
+	ID               string
+	Name             string
+	Image            string
+	LinkedContainers []string
 }

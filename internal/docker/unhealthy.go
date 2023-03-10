@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"strings"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -28,10 +29,20 @@ func (d *Docker) GetUnhealthy(ctx context.Context) (unhealthies []Container, err
 	unhealthies = make([]Container, len(containers))
 
 	for i, container := range containers {
-		unhealthies[i] = Container{
-			ID:    container.ID,
-			Name:  extractName(container),
-			Image: container.Image,
+		if linkedContainerNames, ok := container.Labels["deunhealth.linked.containers"]; ok {
+			unhealthies[i] = Container{
+				ID:               container.ID,
+				Name:             extractName(container),
+				Image:            container.Image,
+				LinkedContainers: strings.Split(linkedContainerNames, ","),
+			}
+		} else {
+			unhealthies[i] = Container{
+				ID:               container.ID,
+				Name:             extractName(container),
+				Image:            container.Image,
+				LinkedContainers: []string{},
+			}
 		}
 	}
 
@@ -69,10 +80,22 @@ func (d *Docker) StreamUnhealthy(ctx context.Context, unhealthies chan<- Contain
 				break
 			}
 
-			unhealthy := Container{
-				ID:    message.Actor.ID,
-				Name:  extractNameFromActor(message.Actor),
-				Image: message.Actor.Attributes["image"],
+			var unhealthy Container
+
+			if linkedContainerNames, ok := message.Actor.Attributes["deunhealth.linked.containers"]; ok {
+				unhealthy = Container{
+					ID:               message.Actor.ID,
+					Name:             extractNameFromActor(message.Actor),
+					Image:            message.Actor.Attributes["image"],
+					LinkedContainers: strings.Split(linkedContainerNames, ","),
+				}
+			} else {
+				unhealthy = Container{
+					ID:               message.Actor.ID,
+					Name:             extractNameFromActor(message.Actor),
+					Image:            message.Actor.Attributes["image"],
+					LinkedContainers: []string{},
+				}
 			}
 
 			select {
